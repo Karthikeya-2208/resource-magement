@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Bell, Shield, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { CreateAccountModal } from '../admin/CreateAccountModal';
 import type { UserRole } from '../../types';
 
 interface NavbarProps {
@@ -11,6 +12,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
   const { profile, role, loginAsDemo } = useAuth();
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchValue, setSearchValue] = useState('');
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +61,16 @@ export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {role === 'admin' && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-semibold transition-all"
+            title="Create New User (Admin Only)"
+          >
+            <span>+ New User Account</span>
+          </button>
+        )}
         {/* Quick Demo Role Switcher (Crucial for Hackathon evaluation) */}
         <div className="relative">
           <button
@@ -144,6 +155,8 @@ export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
           </div>
         </div>
       </div>
+
+      <CreateAccountModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
     </header>
   );
 };
