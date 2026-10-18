@@ -1,295 +1,347 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FileBarChart2,
   Download,
-  Filter,
   Calendar,
   Building2,
   TrendingUp,
-  Table as TableIcon,
+  LineChart as LineChartIcon,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend,
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from 'recharts';
-import { supabase } from '../../lib/supabase';
 import { exportToCSV } from '../../lib/exports';
-import { formatCurrency } from '../../lib/calculations';
-import type { Department, Project, Profile, Allocation } from '../../types';
 
 export const ReportsPage: React.FC = () => {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [employees, setEmployees] = useState<Profile[]>([]);
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeReportTab, setActiveReportTab] = useState<
+    'project' | 'employee' | 'utilization' | 'budget' | 'workload' | 'advanced'
+  >('project');
 
-  // Filters
-  const [reportType, setReportType] = useState('Resource Utilization');
-  const [selectedDept, setSelectedDept] = useState('all');
-  const [dateRange, setDateRange] = useState('This Year');
+  // Filters for Project Report (Card 4)
+  const [deptFilter, setDeptFilter] = useState('All Departments');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [dateRange, setDateRange] = useState('Jan 2026 - Jun 2026');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchReportData = async () => {
-    setLoading(true);
-    try {
-      const { data: deptData } = await supabase.from('departments').select('*');
-      const { data: projData } = await supabase.from('projects').select('*, department:departments(*)');
-      const { data: empData } = await supabase.from('profiles').select('*, department:departments(*)');
-      const { data: allocData } = await supabase.from('allocations').select('*, employee:profiles(*), project:projects(*)');
+  // Filters for Advanced Analytics (Card 5)
+  const [metricFilter, setMetricFilter] = useState('Resource Utilization');
+  const [groupByFilter, setGroupByFilter] = useState('Department');
 
-      if (deptData) setDepartments(deptData);
-      if (projData) setProjects(projData);
-      if (empData) setEmployees(empData);
-      if (allocData) setAllocations(allocData);
-    } catch (err) {
-      console.error('Error fetching reports data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReportData();
-  }, []);
-
-  // Utilization by department chart data matching Screen 10
-  const deptUtilizationData = [
-    { department: 'Engineering', utilization: 82, fill: '#3B82F6' },
-    { department: 'Data & AI', utilization: 75, fill: '#3B82F6' },
-    { department: 'Operations', utilization: 68, fill: '#3B82F6' },
-    { department: 'HR', utilization: 45, fill: '#3B82F6' },
-    { department: 'Finance', utilization: 55, fill: '#3B82F6' },
+  // Dataset for Project Report Table matching Phase 5 Card 4
+  const projectReportData = [
+    { project: 'AI Analytics Platform', dept: 'Data & AI', manager: 'Rahul Mehta', status: 'Active', budget: '₹2.0 Cr', expenses: '₹1.2 Cr', util: 60, statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { project: 'Mobile App Revamp', dept: 'Engineering', manager: 'Jane Smith', status: 'Active', budget: '₹1.5 Cr', expenses: '₹0.7 Cr', util: 47, statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { project: 'ERP Modernization', dept: 'Operations', manager: 'David Lee', status: 'Planning', budget: '₹2.5 Cr', expenses: '₹2.1 Cr', util: 84, statusColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+    { project: 'Cloud Migration', dept: 'Infrastructure', manager: 'Emily Chen', status: 'On Hold', budget: '₹1.0 Cr', expenses: '₹0.5 Cr', util: 50, statusColor: 'bg-amber-50 text-amber-700 border-amber-200' },
+    { project: 'HR Automation', dept: 'HR', manager: 'Priya Kumar', status: 'Active', budget: '₹0.8 Cr', expenses: '₹0.3 Cr', util: 38, statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { project: 'Customer Portal', dept: 'Product', manager: 'Arjun Nair', status: 'Completed', budget: '₹1.2 Cr', expenses: '₹0.9 Cr', util: 75, statusColor: 'bg-slate-100 text-slate-700 border-slate-200' },
   ];
 
-  // Project status distribution matching Screen 10
-  const STATUS_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#64748B'];
-  const projectStatusData = [
-    { name: 'Active', value: 8 },
-    { name: 'Planning', value: 4 },
-    { name: 'On Hold', value: 3 },
-    { name: 'Completed', value: 3 },
+  // Advanced Analytics Line Chart Data matching Phase 5 Card 5
+  const resourceTrendData = [
+    { month: 'Jan', Engineering: 62, DataAI: 50, Operations: 58, HR: 40, Finance: 52 },
+    { month: 'Feb', Engineering: 68, DataAI: 55, Operations: 60, HR: 42, Finance: 54 },
+    { month: 'Mar', Engineering: 74, DataAI: 62, Operations: 64, HR: 44, Finance: 58 },
+    { month: 'Apr', Engineering: 70, DataAI: 65, Operations: 62, HR: 45, Finance: 60 },
+    { month: 'May', Engineering: 76, DataAI: 70, Operations: 68, HR: 46, Finance: 62 },
+    { month: 'Jun', Engineering: 82, DataAI: 75, Operations: 70, HR: 48, Finance: 65 },
+  ];
+
+  // Donut data for Department-wise Allocation matching Phase 5 Card 5
+  const deptAllocationDonut = [
+    { name: 'Engineering', count: 35, color: '#3B82F6' },
+    { name: 'Data & AI', count: 28, color: '#06B6D4' },
+    { name: 'Operations', count: 18, color: '#10B981' },
+    { name: 'HR', count: 12, color: '#F59E0B' },
+    { name: 'Finance', count: 15, color: '#8B5CF6' },
+    { name: 'Others', count: 12, color: '#EC4899' },
   ];
 
   const handleExportCSV = () => {
-    if (reportType === 'Resource Utilization') {
-      const rows = employees.map((e) => {
-        const empAlloc = allocations
-          .filter((a) => a.employee_id === e.id)
-          .reduce((sum, a) => sum + a.allocation_percentage, 0);
-        return {
-          Name: e.full_name,
-          Email: e.email,
-          Department: e.department?.name || 'General',
-          Role: e.role,
-          'Current Allocation (%)': empAlloc,
-          'Available Capacity (%)': Math.max(0, 100 - empAlloc),
-          Status: e.employment_status,
-        };
-      });
-      exportToCSV('resource_utilization_report', rows);
-    } else {
-      const rows = projects.map((p) => ({
-        Project: p.name,
-        Department: p.department?.name || 'General',
-        Budget: p.budget,
-        Status: p.status,
-        'Start Date': p.start_date,
-        'End Date': p.end_date,
-      }));
-      exportToCSV('projects_report', rows);
-    }
+    exportToCSV('project_performance_report', projectReportData);
   };
 
   return (
     <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Title & Filters matching Screen 10 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Reports & Analytics</h1>
-          <p className="text-sm text-slate-500">View organizational telemetry, capacity commitment, and export CSVs</p>
-        </div>
-
-        <button
-          onClick={handleExportCSV}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all self-start sm:self-auto"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export CSV</span>
-        </button>
+      {/* Title */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          {activeReportTab === 'advanced' ? 'Advanced Analytics' : 'Reports & Analytics'}
+        </h1>
+        <p className="text-sm text-slate-500">Cross-departmental telemetry, project performance, and workforce forecasting</p>
       </div>
 
-      {/* Filter Toolbar matching Screen 10 */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-wrap items-center gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Report Type</label>
-          <select
-            value={reportType}
-            onChange={(e) => setReportType(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+      {/* Navigation Subtabs matching Phase 5 Card 4 & Card 5 */}
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 pb-2 text-xs font-semibold">
+        {[
+          { id: 'employee', label: 'Employee Report' },
+          { id: 'project', label: 'Project Report' },
+          { id: 'utilization', label: 'Resource Utilization' },
+          { id: 'budget', label: 'Budget Report' },
+          { id: 'workload', label: 'Workload Report' },
+          { id: 'advanced', label: 'Advanced Analytics (Card 5)' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveReportTab(tab.id as any)}
+            className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+              activeReportTab === tab.id
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
           >
-            <option value="Resource Utilization">Resource Utilization</option>
-            <option value="Project Budgets & Expenses">Project Budgets & Expenses</option>
-            <option value="Employee Workload">Employee Workload</option>
-          </select>
-        </div>
-
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Department</label>
-          <select
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-          >
-            <option value="all">All Departments</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-semibold text-slate-500 mb-1">Date Range</label>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-          >
-            <option value="This Year">This Year</option>
-            <option value="Last 6 Months">Last 6 Months</option>
-            <option value="All Time">All Time</option>
-          </select>
-        </div>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Visualizations Row matching Screen 10 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Resource Utilization by Department Bar Chart (7 cols) */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900 mb-1">Resource Utilization by Department</h3>
-          <p className="text-xs text-slate-500 mb-6">Aggregate staff bandwidth commitment percentage</p>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptUtilizationData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="department" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis unit="%" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                <Tooltip formatter={(val) => `${val}%`} />
-                <Bar dataKey="utilization" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* SECTION 1: Project Report matching Phase 5 Card 4 */}
+      {activeReportTab !== 'advanced' && (
+        <div className="space-y-6">
+          {/* Filter Bar with Export CSV button */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              >
+                <option value="All Departments">All Departments</option>
+                <option value="Data & AI">Data & AI</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Operations">Operations</option>
+                <option value="Infrastructure">Infrastructure</option>
+                <option value="HR">HR</option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              >
+                <option value="All Status">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Planning">Planning</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Completed">Completed</option>
+              </select>
+
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>{dateRange}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all ml-auto"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+          </div>
+
+          {/* Table matching Phase 5 Card 4 */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-6">Project</th>
+                    <th className="py-3.5 px-6">Department</th>
+                    <th className="py-3.5 px-6">Project Manager</th>
+                    <th className="py-3.5 px-6">Status</th>
+                    <th className="py-3.5 px-6">Budget</th>
+                    <th className="py-3.5 px-6">Expenses</th>
+                    <th className="py-3.5 px-6">Utilization</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {projectReportData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-4 px-6 font-bold text-slate-900">{row.project}</td>
+                      <td className="py-4 px-6 text-slate-600">{row.dept}</td>
+                      <td className="py-4 px-6 font-medium text-slate-800">{row.manager}</td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${row.statusColor}`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 font-semibold text-slate-900">{row.budget}</td>
+                      <td className="py-4 px-6 text-slate-700">{row.expenses}</td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 w-8">{row.util}%</span>
+                          <div className="w-24 bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-blue-600 h-full rounded-full" style={{ width: `${row.util}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination matching Phase 5 Card 4 */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Showing 1 to 6 of 18 projects</span>
+              <div className="flex items-center gap-1.5">
+                <button className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40">
+                  &lt;
+                </button>
+                <button className="w-7 h-7 rounded-lg bg-blue-600 text-white font-semibold shadow-sm">1</button>
+                <button className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold">2</button>
+                <button className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold">3</button>
+                <button className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100">
+                  &gt;
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Project Status Distribution Donut Chart (5 cols) */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">Project Status Distribution</h3>
-            <p className="text-xs text-slate-500 mb-4">Portfolio lifecycle breakdown</p>
-          </div>
+      {/* SECTION 2: Advanced Analytics matching Phase 5 Card 5 */}
+      {activeReportTab === 'advanced' && (
+        <div className="space-y-6">
+          {/* Filter Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-wrap items-center gap-3">
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-0.5">Metric</label>
+              <select
+                value={metricFilter}
+                onChange={(e) => setMetricFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              >
+                <option value="Resource Utilization">Resource Utilization</option>
+                <option value="Budget Spend">Budget Spend</option>
+              </select>
+            </div>
 
-          <div className="flex flex-col items-center justify-center my-4">
-            <div className="w-48 h-48 relative flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={projectStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {projectStatusData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-extrabold text-slate-900">18</span>
-                <span className="text-[10px] text-slate-400 font-medium">Total Projects</span>
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-0.5">Group By</label>
+              <select
+                value={groupByFilter}
+                onChange={(e) => setGroupByFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              >
+                <option value="Department">Department</option>
+                <option value="Project">Project</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 block mb-0.5">Date Range</label>
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>Jan 2026 - Jun 2026</span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-4 border-t border-slate-100 text-xs">
-            {projectStatusData.map((item, index) => (
-              <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: STATUS_COLORS[index] }}
-                  />
-                  <span className="text-slate-600 font-medium">{item.name}</span>
-                </div>
-                <span className="font-bold text-slate-900">{item.value}</span>
+          {/* Line Chart: Resource Utilization Trend matching Phase 5 Card 5 */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Resource Utilization Trend</h3>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={resourceTrendData}>
+                  <XAxis dataKey="month" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                  <Tooltip formatter={(value) => [`${value}%`, '']} />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                  <Line type="monotone" dataKey="Engineering" stroke="#3B82F6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="DataAI" name="Data & AI" stroke="#10B981" strokeWidth={2} />
+                  <Line type="monotone" dataKey="Operations" stroke="#F59E0B" strokeWidth={2} />
+                  <Line type="monotone" dataKey="HR" stroke="#8B5CF6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="Finance" stroke="#EC4899" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Bottom Grid: Project Budget Utilization (Left) + Department-wise Allocation Donut (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left: Project Budget Utilization (6 cols) */}
+            <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-slate-900">Project Budget Utilization</h3>
+              <div className="space-y-4 pt-2">
+                {[
+                  { name: 'AI Analytics', util: 60, color: 'bg-blue-600' },
+                  { name: 'Mobile App', util: 47, color: 'bg-emerald-500' },
+                  { name: 'ERP Modernization', util: 84, color: 'bg-amber-500' },
+                  { name: 'Cloud Migration', util: 50, color: 'bg-cyan-500' },
+                  { name: 'HR Automation', util: 38, color: 'bg-rose-500' },
+                ].map((item, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-800">{item.name}</span>
+                      <span className="font-bold text-slate-900">{item.util}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.util}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Right: Department-wise Allocation Donut (6 cols) */}
+            <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
+              <h3 className="text-sm font-bold text-slate-900 mb-4">Department-wise Allocation</h3>
+              <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
+                <div className="w-48 h-48 relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={deptAllocationDonut}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="count"
+                      >
+                        {deptAllocationDonut.map((entry, index) => (
+                          <Cell key={`cell-adv-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-extrabold text-slate-900">120</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase">Employees</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
+                  {deptAllocationDonut.map((item) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-600 font-medium">{item.name}</span>
+                      <span className="font-bold text-slate-900 ml-auto">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Summary Table with Live Database Records */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Telemetry Data Records</h3>
-            <p className="text-xs text-slate-500">Live verified database rows matching active filters</p>
-          </div>
-          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-            {employees.length} Records
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-              <tr>
-                <th className="py-3 px-6">Employee</th>
-                <th className="py-3 px-6">Department</th>
-                <th className="py-3 px-6">Role</th>
-                <th className="py-3 px-6">Current Allocation</th>
-                <th className="py-3 px-6">Available Capacity</th>
-                <th className="py-3 px-6">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {employees.map((emp) => {
-                const empAlloc = allocations
-                  .filter((a) => a.employee_id === emp.id)
-                  .reduce((sum, a) => sum + a.allocation_percentage, 0);
-                const empAvail = Math.max(0, 100 - empAlloc);
-
-                return (
-                  <tr key={emp.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-6 font-bold text-slate-900">{emp.full_name}</td>
-                    <td className="py-3 px-6 text-slate-600">{emp.department?.name || 'Engineering'}</td>
-                    <td className="py-3 px-6 capitalize">{emp.role.replace(/_/g, ' ')}</td>
-                    <td className="py-3 px-6 font-bold text-blue-600">{empAlloc}%</td>
-                    <td className="py-3 px-6 font-semibold text-emerald-600">{empAvail}%</td>
-                    <td className="py-3 px-6">
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 capitalize">
-                        {emp.employment_status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -13,7 +13,9 @@ import { DepartmentManagement } from './pages/admin/DepartmentManagement';
 import { ProjectsPage } from './pages/common/ProjectsPage';
 import { ProjectDetailsPage } from './pages/common/ProjectDetailsPage';
 import { ResourceAllocationPage } from './pages/manager/ResourceAllocationPage';
+import { ExpensesPage } from './pages/common/ExpensesPage';
 import { ReportsPage } from './pages/common/ReportsPage';
+import { SkillsAchievementsPage } from './pages/common/SkillsAchievementsPage';
 import { EmployeeProfilePage } from './pages/employee/EmployeeProfilePage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 
@@ -84,19 +86,14 @@ const MainApp: React.FC = () => {
         return <ResourceAllocationPage />;
 
       case 'expenses':
-        // For manager expenses tab, jump into project details or dedicated expense project
-        return (
-          <ProjectDetailsPage
-            projectId={selectedProjectId || 'b0000000-0000-0000-0000-000000000001'}
-            onBack={() => setCurrentTab('dashboard')}
-          />
-        );
+        return <ExpensesPage />;
 
       case 'my-profile':
         return <EmployeeProfilePage />;
 
       case 'skills':
-        return <EmployeeDashboard />;
+      case 'achievements':
+        return <SkillsAchievementsPage />;
 
       case 'reports':
         return <ReportsPage />;

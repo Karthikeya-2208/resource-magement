@@ -32,7 +32,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
           { id: 'employees', label: 'Employees', icon: Users },
           { id: 'departments', label: 'Departments', icon: Building2 },
           { id: 'projects', label: 'Projects', icon: FolderKanban },
+          { id: 'allocations', label: 'Resource Allocation', icon: Layers },
+          { id: 'expenses', label: 'Expenses', icon: Receipt },
           { id: 'reports', label: 'Reports', icon: FileBarChart2 },
+          { id: 'skills', label: 'Skills & Certifications', icon: Award },
+          { id: 'achievements', label: 'Achievements', icon: Sparkles },
           { id: 'settings', label: 'Settings', icon: Settings },
         ];
       case 'project_manager':
@@ -49,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
           { id: 'my-profile', label: 'My Profile', icon: UserCheck },
           { id: 'my-projects', label: 'My Projects', icon: FolderKanban },
           { id: 'skills', label: 'Skills & Certifications', icon: Award },
+          { id: 'achievements', label: 'Achievements', icon: Sparkles },
           { id: 'reports', label: 'Reports', icon: FileBarChart2 },
         ];
       default:

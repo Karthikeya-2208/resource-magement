@@ -58,6 +58,7 @@ export interface Allocation {
   allocation_percentage: number;
   start_date: string;
   end_date: string;
+  status?: string;
   created_at?: string;
   employee?: Profile | null;
   project?: Project | null;

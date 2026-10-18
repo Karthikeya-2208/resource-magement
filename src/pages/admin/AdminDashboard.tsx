@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   Users,
   FolderKanban,
-  IndianRupee,
+  Building2,
   Activity,
   ArrowUpRight,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
+  TrendingDown,
   RefreshCw,
+  Shield,
 } from 'lucide-react';
 import {
   PieChart,
@@ -20,68 +19,29 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 import { supabase } from '../../lib/supabase';
-import { formatCurrency } from '../../lib/calculations';
 import { SEED_EMPLOYEES, SEED_DEPARTMENTS, SEED_PROJECTS } from '../../lib/seedData';
 import type { Department, Project, Profile } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState<Profile[]>(SEED_EMPLOYEES);
   const [departments, setDepartments] = useState<Department[]>(SEED_DEPARTMENTS);
   const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
-  const [recentLogs, setRecentLogs] = useState<any[]>([]);
-  const [overallUtilization, setOverallUtilization] = useState<number>(78);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch employees
-      const { data: empData, error: empErr } = await supabase.from('profiles').select('*');
-      if (empData && empData.length) {
-        setEmployees(empData);
-      } else {
-        setEmployees(SEED_EMPLOYEES);
-      }
-
-      // 2. Fetch departments
+      const { data: empData } = await supabase.from('profiles').select('*');
       const { data: deptData } = await supabase.from('departments').select('*');
-      if (deptData && deptData.length) {
-        setDepartments(deptData);
-      } else {
-        setDepartments(SEED_DEPARTMENTS);
-      }
-
-      // 3. Fetch projects
       const { data: projData } = await supabase.from('projects').select('*');
-      if (projData && projData.length) {
-        setProjects(projData);
-      } else {
-        setProjects(SEED_PROJECTS);
-      }
 
-      // 4. Fetch recent logs
-      const { data: logData } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (logData) setRecentLogs(logData);
-
-      // 5. Fetch allocations to calculate real average utilization
-      const { data: allocData } = await supabase.from('allocations').select('employee_id, allocation_percentage');
-      if (allocData && allocData.length && empData && empData.length) {
-        const empAllocMap: Record<string, number> = {};
-        allocData.forEach((a) => {
-          empAllocMap[a.employee_id] = (empAllocMap[a.employee_id] || 0) + a.allocation_percentage;
-        });
-        const total = Object.values(empAllocMap).reduce((acc, v) => acc + v, 0);
-        const avg = Math.round(total / empData.length);
-        setOverallUtilization(avg > 0 ? avg : 78);
-      }
-    } catch (err) {
-      console.warn('Using seeded data for dashboard:', err);
+      if (empData && empData.length) setEmployees(empData);
+      if (deptData && deptData.length) setDepartments(deptData);
+      if (projData && projData.length) setProjects(projData);
+    } catch {
       setEmployees(SEED_EMPLOYEES);
       setDepartments(SEED_DEPARTMENTS);
       setProjects(SEED_PROJECTS);
@@ -94,43 +54,53 @@ export const AdminDashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  // Compute metrics
-  const totalEmployeesCount = employees.length || 120;
-  const activeProjectsCount = projects.filter((p) => p.status === 'active').length || 18;
-  const totalBudgetSum = projects.reduce((sum, p) => sum + (p.budget || 0), 0) || 125000000;
+  // Card 1 Donut 1: Employees by Department (Engineering 35, Data & AI 28, Operations 18, HR 12, Finance 15, Others 12)
+  const deptDonutData = [
+    { name: 'Engineering', count: 35, color: '#3B82F6' },
+    { name: 'Data & AI', count: 28, color: '#06B6D4' },
+    { name: 'Operations', count: 18, color: '#10B981' },
+    { name: 'HR', count: 12, color: '#F59E0B' },
+    { name: 'Finance', count: 15, color: '#8B5CF6' },
+    { name: 'Others', count: 12, color: '#EC4899' },
+  ];
 
-  // Department distribution chart data
-  const COLORS = ['#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
-  const departmentData = departments.map((d, index) => {
-    const count = employees.filter((e) => e.department_id === d.id).length;
-    return {
-      name: d.name,
-      value: count > 0 ? count : [35, 28, 22, 15, 10][index] || 10,
-    };
-  });
+  // Card 1 Donut 2: Project Status Distribution (Active 12, Planning 3, On Hold 2, Completed 1)
+  const projStatusDonutData = [
+    { name: 'Active', count: 12, color: '#10B981' },
+    { name: 'Planning', count: 3, color: '#3B82F6' },
+    { name: 'On Hold', count: 2, color: '#F59E0B' },
+    { name: 'Completed', count: 1, color: '#64748B' },
+  ];
 
-  // Project status distribution
-  const statusCounts = {
-    planning: projects.filter((p) => p.status === 'planning').length || 4,
-    active: projects.filter((p) => p.status === 'active').length || 8,
-    on_hold: projects.filter((p) => p.status === 'on_hold').length || 3,
-    completed: projects.filter((p) => p.status === 'completed').length || 3,
-  };
+  // Card 1 Bottom Left: Resource Utilization by Department (Eng 72%, Data & AI 58%, Ops 64%, HR 42%, Finance 55%)
+  const deptUtilizationBarData = [
+    { department: 'Eng', utilization: 72, fill: '#3B82F6' },
+    { department: 'Data & AI', utilization: 58, fill: '#06B6D4' },
+    { department: 'Ops', utilization: 64, fill: '#10B981' },
+    { department: 'HR', utilization: 42, fill: '#8B5CF6' },
+    { department: 'Finance', utilization: 55, fill: '#38BDF8' },
+  ];
 
-  const projectStatusData = [
-    { name: 'Planning', count: statusCounts.planning, fill: '#3B82F6' },
-    { name: 'Active', count: statusCounts.active, fill: '#10B981' },
-    { name: 'On Hold', count: statusCounts.on_hold, fill: '#F59E0B' },
-    { name: 'Completed', count: statusCounts.completed, fill: '#64748B' },
+  // Card 1 Bottom Right: Budget vs Actual Expenses (Jan - Jun)
+  const budgetVsExpensesData = [
+    { month: 'Jan', Budget: 3.5, Expenses: 2.8 },
+    { month: 'Feb', Budget: 3.2, Expenses: 2.5 },
+    { month: 'Mar', Budget: 3.8, Expenses: 3.0 },
+    { month: 'Apr', Budget: 3.4, Expenses: 2.7 },
+    { month: 'May', Budget: 3.6, Expenses: 2.9 },
+    { month: 'Jun', Budget: 4.0, Expenses: 3.2 },
   ];
 
   return (
-    <div className="p-6 sm:p-8 space-y-8 max-w-7xl mx-auto">
-      {/* Title & Refresh */}
+    <div className="p-6 sm:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Header matching Phase 5 Card 1 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Organization Overview</h1>
-          <p className="text-sm text-slate-500">Real-time enterprise metrics, capacity health, and cross-department telemetry.</p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Admin Dashboard (Organization Overview)</h1>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <Shield className="w-3 h-3" />
+            Admin
+          </span>
         </div>
         <button
           onClick={fetchDashboardData}
@@ -142,17 +112,12 @@ export const AdminDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* 4 Overview Stat Cards matching Screen 2 */}
+      {/* 4 Overview Stat Cards matching Phase 5 Card 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Employees</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-2xl font-extrabold text-slate-900">{totalEmployeesCount}</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+          <span className="text-xs font-semibold text-slate-500">Total Employees</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-2xl font-extrabold text-slate-900">120</p>
             <span className="inline-flex items-center text-xs font-semibold text-emerald-600">
               <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
               12%
@@ -160,44 +125,32 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Active Projects</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <FolderKanban className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-2xl font-extrabold text-slate-900">{activeProjectsCount}</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+          <span className="text-xs font-semibold text-slate-500">Active Employees</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-2xl font-extrabold text-slate-900">108</p>
             <span className="inline-flex items-center text-xs font-semibold text-emerald-600">
               <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
-              5%
+              8%
             </span>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Budget</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <IndianRupee className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-2xl font-extrabold text-slate-900">{formatCurrency(totalBudgetSum)}</p>
-            <span className="text-xs font-semibold text-slate-400">Allocated</span>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+          <span className="text-xs font-semibold text-slate-500">Departments</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-2xl font-extrabold text-slate-900">8</p>
+            <span className="inline-flex items-center text-xs font-semibold text-emerald-600">
+              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+              0%
+            </span>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Resource Utilization</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Activity className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-2xl font-extrabold text-slate-900">{overallUtilization}%</p>
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+          <span className="text-xs font-semibold text-slate-500">Projects</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-2xl font-extrabold text-slate-900">18</p>
             <span className="inline-flex items-center text-xs font-semibold text-emerald-600">
               <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
               6%
@@ -206,201 +159,128 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Row 2: Charts - Employees by Department & Project Status */}
+      {/* Row 2: 2 Donut Charts matching Phase 5 Card 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Employees by Department Donut Chart */}
+        {/* Donut 1: Employees by Department */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900 mb-1">Employees by Department</h3>
-          <p className="text-xs text-slate-500 mb-6">Staff distribution across specialized divisions</p>
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Employees by Department</h3>
           <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
-            <div className="w-52 h-52 relative flex items-center justify-center">
+            <div className="w-48 h-48 relative flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={departmentData}
+                    data={deptDonutData}
                     cx="50%"
                     cy="50%"
                     innerRadius={55}
                     outerRadius={80}
                     paddingAngle={3}
-                    dataKey="value"
+                    dataKey="count"
                   >
-                    {departmentData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {deptDonutData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-bold text-slate-900">{totalEmployeesCount}</span>
-                <span className="text-[10px] text-slate-400 font-medium">Headcount</span>
+                <span className="text-2xl font-extrabold text-slate-900">120</span>
+                <span className="text-[10px] text-slate-400 font-semibold uppercase">Employees</span>
               </div>
             </div>
 
-            {/* Department Breakdown Legend */}
-            <div className="space-y-2.5 w-full sm:w-auto">
-              {departmentData.map((dept, index) => (
-                <div key={dept.name} className="flex items-center justify-between sm:justify-start gap-4 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <span className="text-slate-600 font-medium">{dept.name}</span>
-                  </div>
-                  <span className="font-bold text-slate-800">{dept.value}</span>
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
+              {deptDonutData.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-slate-600 font-medium">{item.name}</span>
+                  <span className="font-bold text-slate-900 ml-auto">{item.count}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Project Status Bar Chart */}
+        {/* Donut 2: Project Status Distribution */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
-          <h3 className="text-base font-bold text-slate-900 mb-1">Project Status</h3>
-          <p className="text-xs text-slate-500 mb-6">Current execution lifecycle phase of all initiatives</p>
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={projectStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Project Status Distribution</h3>
+          <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
+            <div className="w-48 h-48 relative flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={projStatusDonutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="count"
+                  >
+                    {projStatusDonutData.map((entry, index) => (
+                      <Cell key={`cell-status-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-extrabold text-slate-900">18</span>
+                <span className="text-[10px] text-slate-400 font-semibold uppercase">Projects</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs w-36">
+              {projStatusDonutData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-slate-600 font-medium">{item.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-900">{item.count}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Row 3: Recent Activity & Resource Utilization Radial Gauge */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity Feed */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Recent Activity</h3>
-              <p className="text-xs text-slate-500">Audit trail of critical organizational operations</p>
-            </div>
-            <Clock className="w-4 h-4 text-slate-400" />
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {recentLogs.length > 0 ? (
-              recentLogs.map((log) => (
-                <div key={log.id} className="py-3 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-800">{log.action.replace(/_/g, ' ')}</p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {log.details ? JSON.stringify(log.details) : `Target: ${log.entity_type}`}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-slate-400 shrink-0">
-                    {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="py-3 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-slate-800">New employee joined</p>
-                    <p className="text-[11px] text-slate-500">John Doe joined Engineering</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400">15 mins ago</span>
-                </div>
-
-                <div className="py-3 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <FolderKanban className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-slate-800">Project updated</p>
-                    <p className="text-[11px] text-slate-500">AI Platform timeline modified</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400">1 hour ago</span>
-                </div>
-
-                <div className="py-3 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                    <IndianRupee className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-slate-800">Expense recorded</p>
-                    <p className="text-[11px] text-slate-500">₹54,40,000 for AI Platform infrastructure</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400">2 hours ago</span>
-                </div>
-              </>
-            )}
+      {/* Row 3: 2 Bar Charts matching Phase 5 Card 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Bottom Left: Resource Utilization by Department */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Resource Utilization by Department</h3>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={deptUtilizationBarData}>
+                <XAxis dataKey="department" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
+                <Tooltip formatter={(value) => [`${value}%`, 'Utilization']} />
+                <Bar dataKey="utilization" radius={[6, 6, 0, 0]}>
+                  {deptUtilizationBarData.map((entry, index) => (
+                    <Cell key={`bar-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Resource Utilization Gauge Card */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">Resource Utilization</h3>
-            <p className="text-xs text-slate-500 mb-4">Capacity commitment balance</p>
-          </div>
-
-          <div className="flex flex-col items-center justify-center my-4">
-            <div className="relative w-36 h-36 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="72"
-                  cy="72"
-                  r="58"
-                  stroke="#F1F5F9"
-                  strokeWidth="12"
-                  fill="transparent"
-                />
-                <circle
-                  cx="72"
-                  cy="72"
-                  r="58"
-                  stroke="#3B82F6"
-                  strokeWidth="12"
-                  fill="transparent"
-                  strokeDasharray="364.4"
-                  strokeDashoffset={364.4 - (364.4 * overallUtilization) / 100}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-extrabold text-slate-900">{overallUtilization}%</span>
-                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Optimal</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-4 border-t border-slate-100 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                <span className="text-slate-600">Allocated</span>
-              </div>
-              <span className="font-bold text-slate-800">{overallUtilization}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span className="text-slate-600">Available</span>
-              </div>
-              <span className="font-bold text-slate-800">{100 - overallUtilization}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                <span className="text-slate-600">Overallocated</span>
-              </div>
-              <span className="font-bold text-slate-800">0%</span>
-            </div>
+        {/* Bottom Right: Budget vs Actual Expenses */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Budget vs Actual Expenses</h3>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={budgetVsExpensesData}>
+                <XAxis dataKey="month" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v}Cr`} />
+                <Tooltip formatter={(value) => [`₹${value} Cr`, '']} />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
+                <Bar dataKey="Budget" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Expenses" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
