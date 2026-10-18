@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Shield, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, Shield } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { CreateAccountModal } from '../admin/CreateAccountModal';
 import type { UserRole } from '../../types';
@@ -10,8 +10,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
-  const { profile, role, loginAsDemo } = useAuth();
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+  const { profile, role } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchValue, setSearchValue] = useState('');
 
@@ -23,13 +22,13 @@ export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
   const getRoleBadge = (userRole: UserRole | null) => {
     switch (userRole) {
       case 'admin':
-        return { label: 'Admin', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+        return { label: 'Administrator', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
       case 'project_manager':
         return { label: 'Project Manager', color: 'bg-blue-100 text-blue-800 border-blue-200' };
       case 'employee':
         return { label: 'Employee', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
       default:
-        return { label: 'Guest', color: 'bg-slate-100 text-slate-800 border-slate-200' };
+        return { label: 'User', color: 'bg-slate-100 text-slate-800 border-slate-200' };
     }
   };
 
@@ -71,71 +70,12 @@ export const Navbar: React.FC<NavbarProps> = ({ title, onSearch }) => {
             <span>+ New User Account</span>
           </button>
         )}
-        {/* Quick Demo Role Switcher (Crucial for Hackathon evaluation) */}
-        <div className="relative">
-          <button
-            onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200 transition-all shadow-sm"
-            title="Switch demo persona"
-          >
-            <Shield className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">Role:</span>
-            <span className="font-semibold text-blue-700 capitalize">{role || 'Select'}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
 
-          {showRoleSwitcher && (
-            <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50">
-              <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase tracking-wider">
-                Switch Demo Persona
-              </div>
-              <button
-                onClick={() => {
-                  loginAsDemo('admin');
-                  setShowRoleSwitcher(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-xs rounded-lg flex items-center justify-between ${
-                  role === 'admin' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div>
-                  <p className="font-medium">Administrator</p>
-                  <p className="text-[10px] text-slate-400">admin@demo.com</p>
-                </div>
-                {role === 'admin' && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
-              </button>
-              <button
-                onClick={() => {
-                  loginAsDemo('project_manager');
-                  setShowRoleSwitcher(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-xs rounded-lg flex items-center justify-between ${
-                  role === 'project_manager' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div>
-                  <p className="font-medium">Project Manager</p>
-                  <p className="text-[10px] text-slate-400">manager@demo.com</p>
-                </div>
-                {role === 'project_manager' && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
-              </button>
-              <button
-                onClick={() => {
-                  loginAsDemo('employee');
-                  setShowRoleSwitcher(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-xs rounded-lg flex items-center justify-between ${
-                  role === 'employee' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <div>
-                  <p className="font-medium">Employee</p>
-                  <p className="text-[10px] text-slate-400">employee@demo.com</p>
-                </div>
-                {role === 'employee' && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
-              </button>
-            </div>
-          )}
+        {/* Fixed, Non-Switchable Role Indicator Badge */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-sm select-none">
+          <Shield className="w-3.5 h-3.5 text-blue-600" />
+          <span className="hidden sm:inline text-slate-500">Role:</span>
+          <span className="font-semibold text-blue-700 capitalize">{roleBadge.label}</span>
         </div>
 
         {/* Notifications Icon */}

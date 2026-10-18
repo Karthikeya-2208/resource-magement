@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -89,10 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!error && data) {
         setProfile(data as Profile);
+        return data as Profile;
       }
     } catch (err) {
       console.warn('Network issue fetching profile:', err);
     }
+    return null;
   };
 
   useEffect(() => {
@@ -166,7 +168,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string, targetRole?: UserRole) => {
     setLoading(true);
 
-    // Check if credentials match one of the predefined demo accounts
+    const roleName = (r: UserRole) => {
+      if (r === 'admin') return 'Administrator';
+      if (r === 'project_manager') return 'Project Manager';
+      return 'Employee';
+    };
+
+    // Strict validation: Demo accounts can only log in through their own portal
+    if (email === 'admin@demo.com') {
+      if (targetRole && targetRole !== 'admin') {
+        setLoading(false);
+        return {
+          error: new Error(
+            `Access Denied: admin@demo.com is an Administrator account. Please sign in via the Administrator portal.`
+          ),
+        };
+      }
+    } else if (email === 'manager@demo.com') {
+      if (targetRole && targetRole !== 'project_manager') {
+        setLoading(false);
+        return {
+          error: new Error(
+            `Access Denied: manager@demo.com is a Project Manager account. Please sign in via the Project Manager portal.`
+          ),
+        };
+      }
+    } else if (email === 'employee@demo.com') {
+      if (targetRole && targetRole !== 'employee') {
+        setLoading(false);
+        return {
+          error: new Error(
+            `Access Denied: employee@demo.com is an Employee account. Please sign in via the Employee workspace.`
+          ),
+        };
+      }
+    }
+
     let matchedDemoRole: UserRole | null = targetRole || null;
     if (email === 'admin@demo.com') matchedDemoRole = 'admin';
     else if (email === 'manager@demo.com') matchedDemoRole = 'project_manager';
@@ -179,14 +216,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!error && data.user) {
+        const userProfile = await fetchProfile(data.user.id);
+        if (targetRole && userProfile && userProfile.role !== targetRole) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return {
+            error: new Error(
+              `Access Denied: Your account is registered as a ${roleName(
+                userProfile.role
+              )}. Please sign in using the ${roleName(userProfile.role)} portal.`
+            ),
+          };
+        }
         setUser(data.user);
-        await fetchProfile(data.user.id);
         setLoading(false);
         return { error: null };
       }
 
-      // If user provided a password and it matches demo accounts or targetRole
+      // Check if user has an existing saved custom account in localStorage
+      const savedCustomProfile = localStorage.getItem('resourcehub_custom_profile');
+      if (savedCustomProfile) {
+        try {
+          const parsed = JSON.parse(savedCustomProfile);
+          if (parsed.email === email) {
+            if (targetRole && parsed.role !== targetRole) {
+              setLoading(false);
+              return {
+                error: new Error(
+                  `Access Denied: This account is registered as a ${roleName(
+                    parsed.role
+                  )}. Please sign in using the ${roleName(parsed.role)} portal.`
+                ),
+              };
+            }
+            setProfile(parsed);
+            setUser({
+              id: parsed.id,
+              email: parsed.email,
+              app_metadata: {},
+              user_metadata: { full_name: parsed.full_name, role: parsed.role },
+              aud: 'authenticated',
+              created_at: new Date().toISOString(),
+            } as User);
+            setLoading(false);
+            return { error: null };
+          }
+        } catch {}
+      }
+
+      // If user provided a password and it matches demo accounts
       if (matchedDemoRole) {
+        if (targetRole && matchedDemoRole !== targetRole) {
+          setLoading(false);
+          return {
+            error: new Error(`Access Denied: Role mismatch for ${email}.`),
+          };
+        }
         const demoProf = DEMO_PROFILES[matchedDemoRole];
         setProfile(demoProf);
         setUser({
@@ -207,6 +294,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: error || new Error('Invalid email or password.') };
     } catch (err: any) {
       if (matchedDemoRole) {
+        if (targetRole && matchedDemoRole !== targetRole) {
+          setLoading(false);
+          return {
+            error: new Error(`Access Denied: Role mismatch for ${email}.`),
+          };
+        }
         const demoProf = DEMO_PROFILES[matchedDemoRole];
         setProfile(demoProf);
         setUser({

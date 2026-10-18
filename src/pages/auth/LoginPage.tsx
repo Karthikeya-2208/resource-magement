@@ -25,7 +25,7 @@ import { SEED_DEPARTMENTS } from '../../lib/seedData';
 import type { UserRole } from '../../types';
 
 export const LoginPage: React.FC = () => {
-  const { signIn, signUp, signInWithGoogle, loginWithGoogleUser, loginAsDemo } = useAuth();
+  const { signIn, signUp, signInWithGoogle, loginWithGoogleUser } = useAuth();
 
   // Mode: 'signin' or 'signup'
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -572,49 +572,6 @@ export const LoginPage: React.FC = () => {
             </form>
           )}
 
-          {/* Quick Demo Switcher helper */}
-          <div className="pt-4 border-t border-slate-100">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-              Instant Demo Access:
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('admin');
-                  loginAsDemo('admin');
-                }}
-                className="p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left bg-slate-50"
-              >
-                <span className="text-xs font-bold text-slate-800 block">Admin</span>
-                <span className="text-[10px] text-slate-400 block truncate">admin@demo.com</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('project_manager');
-                  loginAsDemo('project_manager');
-                }}
-                className="p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left bg-slate-50"
-              >
-                <span className="text-xs font-bold text-slate-800 block">Manager</span>
-                <span className="text-[10px] text-slate-400 block truncate">manager@demo.com</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('employee');
-                  loginAsDemo('employee');
-                }}
-                className="p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left bg-slate-50"
-              >
-                <span className="text-xs font-bold text-slate-800 block">Employee</span>
-                <span className="text-[10px] text-slate-400 block truncate">employee@demo.com</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
