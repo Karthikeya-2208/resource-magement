@@ -542,11 +542,28 @@ export const LoginPage: React.FC = () => {
                   </label>
                   <select
                     value={signUpRole}
-                    onChange={(e) => setSignUpRole(e.target.value as UserRole)}
+                    onChange={(e) => {
+                      const newRole = e.target.value as UserRole;
+                      setSignUpRole(newRole);
+                      if (
+                        jobTitle === 'Software Engineer' ||
+                        jobTitle === 'Project Manager' ||
+                        jobTitle === 'Administrator' ||
+                        jobTitle === 'Product Manager'
+                      ) {
+                        setJobTitle(
+                          newRole === 'admin'
+                            ? 'Administrator'
+                            : newRole === 'project_manager'
+                            ? 'Product Manager'
+                            : 'Software Engineer'
+                        );
+                      }
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800"
                   >
                     <option value="employee">Employee</option>
-                    <option value="project_manager">Project Manager</option>
+                    <option value="project_manager">Project Manager / Product Manager</option>
                     <option value="admin">Administrator</option>
                   </select>
                 </div>

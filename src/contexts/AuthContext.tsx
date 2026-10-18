@@ -355,32 +355,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ error: Error | null }> => {
     setLoading(true);
     try {
+      const cleanEmail = email.toLowerCase().trim();
       let createdUserId: string = crypto.randomUUID();
 
-      // 1. Attempt Supabase Auth Sign Up
-      try {
-        const { data: authData } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: metadata.fullName,
-              role: metadata.role,
+      // 1. Primary: Register account directly via database RPC (auto-confirms email and bypasses mailer rate-limits)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('register_user_account', {
+        p_email: cleanEmail,
+        p_password: password,
+        p_full_name: metadata.fullName,
+        p_role: metadata.role,
+        p_department_id: metadata.departmentId || null,
+        p_job_title:
+          metadata.jobTitle ||
+          (metadata.role === 'admin'
+            ? 'Administrator'
+            : metadata.role === 'project_manager'
+            ? 'Project Manager'
+            : 'Software Engineer'),
+      });
+
+      if (!rpcError && rpcData?.user_id) {
+        createdUserId = rpcData.user_id;
+      } else {
+        // Fallback to standard Supabase auth signUp
+        try {
+          const { data: authData } = await supabase.auth.signUp({
+            email: cleanEmail,
+            password,
+            options: {
+              data: {
+                full_name: metadata.fullName,
+                role: metadata.role,
+              },
             },
-          },
-        });
-        if (authData?.user?.id) {
-          createdUserId = authData.user.id;
+          });
+          if (authData?.user?.id) {
+            createdUserId = authData.user.id;
+          }
+        } catch (e) {
+          console.warn('Standard signup fallback note:', e);
         }
-      } catch (authException) {
-        console.warn('Supabase auth signup attempt:', authException);
       }
 
-      // 2. Insert into profiles table
+      // 2. Ensure profile is saved in public.profiles table
       const newProfile: Profile = {
         id: createdUserId,
         full_name: metadata.fullName,
-        email,
+        email: cleanEmail,
         role: metadata.role,
         department_id: metadata.departmentId || null,
         job_title:
@@ -392,7 +413,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             : 'Software Engineer'),
         employment_status: 'active',
         date_of_joining: new Date().toISOString().split('T')[0],
-        salary: metadata.role === 'admin' ? 2200000 : metadata.role === 'project_manager' ? 1650000 : 1200000,
+        salary:
+          metadata.role === 'admin'
+            ? 2200000
+            : metadata.role === 'project_manager'
+            ? 1650000
+            : 1200000,
       };
 
       try {
@@ -410,17 +436,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Profile DB save note:', dbErr);
       }
 
-      // Save into state and local storage so the session persists
-      setProfile(newProfile);
-      setUser({
-        id: createdUserId,
-        email,
-        app_metadata: {},
-        user_metadata: { full_name: metadata.fullName, role: metadata.role },
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-      } as User);
+      // 3. Authenticate with Supabase to acquire full session
+      try {
+        const { data: loginData } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+        if (loginData?.user) {
+          setUser(loginData.user);
+        } else {
+          setUser({
+            id: createdUserId,
+            email: cleanEmail,
+            app_metadata: {},
+            user_metadata: { full_name: metadata.fullName, role: metadata.role },
+            aud: 'authenticated',
+            created_at: new Date().toISOString(),
+          } as User);
+        }
+      } catch {
+        setUser({
+          id: createdUserId,
+          email: cleanEmail,
+          app_metadata: {},
+          user_metadata: { full_name: metadata.fullName, role: metadata.role },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        } as User);
+      }
 
+      setProfile(newProfile);
       localStorage.setItem('resourcehub_demo_role', metadata.role);
       localStorage.setItem('resourcehub_custom_profile', JSON.stringify(newProfile));
       setLoading(false);

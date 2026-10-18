@@ -29,29 +29,32 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({ isOpen, 
     if (!fullName || !email || !password) return;
     setSaving(true);
     try {
-      // 1. Create user in Supabase Auth if client signup is enabled or deterministic
-      try {
-        await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName, role },
-          },
-        });
-      } catch {}
+      const cleanEmail = email.toLowerCase().trim();
 
-      // 2. Insert into profiles
-      const newId = crypto.randomUUID();
-      await supabase.from('profiles').insert({
-        id: newId,
-        full_name: fullName,
-        email,
-        department_id: departmentId || null,
-        role,
-        job_title: jobTitle,
-        employment_status: status,
-        date_of_joining: new Date().toISOString().split('T')[0],
+      // 1. Primary: Register account directly via database RPC (auto-confirms email and inserts profile)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('register_user_account', {
+        p_email: cleanEmail,
+        p_password: password,
+        p_full_name: fullName,
+        p_role: role,
+        p_department_id: departmentId || null,
+        p_job_title: jobTitle || 'Team Member',
       });
+
+      if (rpcError) {
+        // Fallback: standard profile insert
+        const newId = crypto.randomUUID();
+        await supabase.from('profiles').upsert({
+          id: newId,
+          full_name: fullName,
+          email: cleanEmail,
+          department_id: departmentId || null,
+          role,
+          job_title: jobTitle,
+          employment_status: status,
+          date_of_joining: new Date().toISOString().split('T')[0],
+        });
+      }
 
       setSuccessMsg(true);
       setTimeout(() => {
