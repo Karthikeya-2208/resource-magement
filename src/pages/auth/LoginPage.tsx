@@ -110,6 +110,20 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleClick = async () => {
     setErrorMsg(null);
+    if (
+      email &&
+      email.includes('@') &&
+      email !== 'admin@demo.com' &&
+      email !== 'manager@demo.com' &&
+      email !== 'employee@demo.com'
+    ) {
+      setGoogleEmail(email);
+      const nameGuess = email
+        .split('@')[0]
+        .replace(/[._]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      setGoogleName(nameGuess);
+    }
     const res = await signInWithGoogle();
     if (res.simulated || res.error) {
       // Open the interactive Google Sign-In dialog
@@ -244,9 +258,26 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-700 text-xs animate-fadeIn">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex flex-col gap-2 text-rose-700 text-xs animate-fadeIn">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
+              </div>
+              {authMode === 'signin' && (
+                <div className="pl-7 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setSignUpEmail(email);
+                      setErrorMsg(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] transition-colors shadow-sm"
+                  >
+                    <span>New user? Click here to Sign Up with this email &rarr;</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

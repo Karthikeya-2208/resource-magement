@@ -216,21 +216,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!error && data.user) {
-        const userProfile = await fetchProfile(data.user.id);
-        if (targetRole && userProfile && userProfile.role !== targetRole) {
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return {
-            error: new Error(
-              `Access Denied: Your account is registered as a ${roleName(
-                userProfile.role
-              )}. Please sign in using the ${roleName(userProfile.role)} portal.`
-            ),
+        let userProfile = await fetchProfile(data.user.id);
+
+        // If profile doesn't exist yet in public.profiles, create it from auth metadata
+        if (!userProfile) {
+          const authRole =
+            (data.user.user_metadata?.role as UserRole) || targetRole || 'employee';
+          const authName =
+            data.user.user_metadata?.full_name || email.split('@')[0];
+          userProfile = {
+            id: data.user.id,
+            email: data.user.email || email,
+            full_name: authName,
+            role: authRole,
+            job_title:
+              authRole === 'admin'
+                ? 'Administrator'
+                : authRole === 'project_manager'
+                ? 'Project Manager'
+                : 'Software Engineer',
+            employment_status: 'active',
+            date_of_joining: new Date().toISOString().split('T')[0],
           };
+          try {
+            await supabase.from('profiles').upsert(userProfile);
+          } catch {}
         }
+
         setUser(data.user);
+        if (userProfile) {
+          setProfile(userProfile);
+          localStorage.setItem('resourcehub_demo_role', userProfile.role);
+          localStorage.setItem('resourcehub_custom_profile', JSON.stringify(userProfile));
+        }
         setLoading(false);
         return { error: null };
       }
@@ -291,6 +309,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setLoading(false);
+      const isInvalidCredentials =
+        error?.message?.toLowerCase().includes('invalid login credentials') ||
+        error?.message?.toLowerCase().includes('email not confirmed');
+      if (isInvalidCredentials) {
+        return {
+          error: new Error(
+            `Account not found for "${email}" or incorrect credentials. If you are a new user, please click "Create Account" below to register first.`
+          ),
+        };
+      }
       return { error: error || new Error('Invalid email or password.') };
     } catch (err: any) {
       if (matchedDemoRole) {
